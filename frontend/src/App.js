@@ -191,16 +191,28 @@ function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate phone number using intl-tel-input
-    if (itiRef.current && !itiRef.current.isValidNumber()) {
-      setError(t.errorMessage);
+    // Validation simple : au moins 8 chiffres
+    const phoneDigits = formData.phone.replace(/\D/g, ''); // Garder que les chiffres
+    if (phoneDigits.length < 8) {
+      setError(language === 'fr' ? 'Veuillez saisir au moins 8 chiffres' : 'Please enter at least 8 digits');
       return;
     }
 
-    // Get the full international number
-    const fullPhoneNumber = itiRef.current ? itiRef.current.getNumber() : formData.phone;
-    const countryData = itiRef.current ? itiRef.current.getSelectedCountryData() : {};
-    const countryCode = countryData.dialCode || '';
+    // Get the full international number from intl-tel-input if available
+    let fullPhoneNumber = formData.phone;
+    let countryCode = '';
+    
+    if (itiRef.current) {
+      try {
+        fullPhoneNumber = itiRef.current.getNumber();
+        const countryData = itiRef.current.getSelectedCountryData();
+        countryCode = countryData.dialCode || '';
+      } catch (error) {
+        // Si erreur avec intl-tel-input, utiliser le numéro tel quel
+        fullPhoneNumber = formData.phone;
+        countryCode = '';
+      }
+    }
     
     try {
       // Send data to backend
@@ -223,7 +235,7 @@ function App() {
       console.log('Waitlist entry created successfully:', response.data);
     } catch (error) {
       console.error('Error submitting form:', error);
-      setError('Une erreur est survenue. Veuillez réessayer.');
+      setError(language === 'fr' ? 'Une erreur est survenue. Veuillez réessayer.' : 'An error occurred. Please try again.');
     }
   };
 
