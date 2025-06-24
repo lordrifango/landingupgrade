@@ -170,7 +170,14 @@ function App() {
       ...formData,
       [name]: value
     });
-    if (error) setError('');
+    
+    // Clear error when user types and has at least 8 digits
+    if (error && name === 'phone') {
+      const phoneDigits = value.replace(/\D/g, '');
+      if (phoneDigits.length >= 8) {
+        setError('');
+      }
+    }
   };
 
   const generateReferralCode = () => {
