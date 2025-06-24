@@ -188,7 +188,7 @@ function App() {
     return position;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validate phone number using intl-tel-input
@@ -199,19 +199,32 @@ function App() {
 
     // Get the full international number
     const fullPhoneNumber = itiRef.current ? itiRef.current.getNumber() : formData.phone;
+    const countryData = itiRef.current ? itiRef.current.getSelectedCountryData() : {};
+    const countryCode = countryData.dialCode || '';
     
-    console.log('Phone:', fullPhoneNumber);
-    console.log('Email:', formData.email);
+    try {
+      // Send data to backend
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+      const response = await axios.post(`${backendUrl}/api/waitlist`, {
+        phone: formData.phone,
+        email: formData.email,
+        full_phone_number: fullPhoneNumber,
+        country_code: countryCode
+      });
 
-    // Generate user data
-    const position = generateUserPosition();
-    const code = generateReferralCode();
-    
-    setUserPosition(position);
-    setReferralCode(code);
-    
-    // Simulate form submission
-    setIsSubmitted(true);
+      // Use the response data from server
+      const { position, referral_code } = response.data;
+      setUserPosition(position);
+      setReferralCode(referral_code);
+      
+      // Simulate form submission
+      setIsSubmitted(true);
+      
+      console.log('Waitlist entry created successfully:', response.data);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setError('Une erreur est survenue. Veuillez réessayer.');
+    }
   };
 
   const getReferralUrl = () => {
