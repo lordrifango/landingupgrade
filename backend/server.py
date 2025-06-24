@@ -74,6 +74,86 @@ async def get_status_checks():
     status_checks = await db.status_checks.find().to_list(1000)
     return [StatusCheck(**status_check) for status_check in status_checks]
 
+def generate_referral_code():
+    """Generate a unique 6-character referral code"""
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+def generate_user_position():
+    """Generate a user position based on current waitlist count + some randomness"""
+    base_number = 2518
+    now = datetime.utcnow()
+    start_of_day = datetime(now.year, now.month, now.day)
+    seconds_since_midnight = int((now - start_of_day).total_seconds())
+    position = base_number + (seconds_since_midnight // 10)
+    return position
+
+@api_router.post("/waitlist", response_model=WaitlistEntry)
+async def create_waitlist_entry(input: WaitlistEntryCreate, request: Request):
+    """Create a new waitlist entry with phone number capture"""
+    # Generate referral code and position
+    referral_code = generate_referral_code()
+    position = generate_user_position()
+    
+    # Get client IP
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Get user agent
+    user_agent = request.headers.get("user-agent", "unknown")
+    
+    # Create waitlist entry
+    waitlist_data = input.dict()
+    waitlist_data.update({
+        "referral_code": referral_code,
+        "position": position,
+        "ip_address": client_ip,
+        "user_agent": user_agent
+    })
+    
+    waitlist_obj = WaitlistEntry(**waitlist_data)
+    
+    # Save to database
+    await db.waitlist_entries.insert_one(waitlist_obj.dict())
+    
+    return waitlist_obj
+
+@api_router.get("/waitlist", response_model=List[WaitlistEntry])
+async def get_waitlist_entries():
+    """Get all waitlist entries - for admin purposes"""
+    entries = await db.waitlist_entries.find().sort("timestamp", -1).to_list(1000)
+    return [WaitlistEntry(**entry) for entry in entries]
+
+@api_router.get("/waitlist/count")
+async def get_waitlist_count():
+    """Get total count of waitlist entries"""
+    count = await db.waitlist_entries.count_documents({})
+    return {"count": count}
+
+@api_router.get("/waitlist/export")
+async def export_waitlist_entries():
+    """Export all waitlist entries for download"""
+    entries = await db.waitlist_entries.find().sort("timestamp", -1).to_list(10000)
+    
+    # Format for export
+    export_data = []
+    for entry in entries:
+        export_data.append({
+            "id": entry.get("id"),
+            "phone": entry.get("phone"),
+            "full_phone_number": entry.get("full_phone_number"),
+            "email": entry.get("email"),
+            "country_code": entry.get("country_code"),
+            "referral_code": entry.get("referral_code"),
+            "position": entry.get("position"),
+            "ip_address": entry.get("ip_address"),
+            "user_agent": entry.get("user_agent"),
+            "timestamp": entry.get("timestamp").isoformat() if entry.get("timestamp") else ""
+        })
+    
+    return {
+        "total_entries": len(export_data),
+        "entries": export_data
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
