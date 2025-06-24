@@ -224,7 +224,6 @@ test_plan:
   current_focus:
     - "Phone number input with international validation"
     - "Form submission with backend integration"
-    - "API endpoint for waitlist creation"
     - "Complete Tonty landing page content"
   stuck_tasks: []
   test_all: false
